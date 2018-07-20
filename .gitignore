@@ -1,0 +1,9 @@
+*.csv
+*.ipynb
+*.pyc
+*.html
+*.log
+*.bak
+.DS_Store
+__pycache__
+
