@@ -2,8 +2,10 @@ import time
 import argparse
 import pickle
 import pandas as pd
-from bs4 import BeautifulSoup
 import realtor_functions as rl
+from itertools import cycle
+import random
+
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -18,12 +20,25 @@ zipcodes_count = zipcodes.shape[0]
 zipcodes = zipcodes.iloc[args.resume:]
 st = zipcodes.zipcode.values.tolist()
 num_search_terms = len(st)
+proxies = rl.get_proxies()
+proxy_pool = cycle(proxies)
 
-driver = rl.init_driver("/Users/mlangberg/venv3/bin/chromedriver")
+# print("PROXY LIST: ", proxies)
+for proxy in proxies:
+    try:
+        print("Using PROXY: {}".format(proxy))
+        proxy = random.sample(proxies, 1)[0]
+        driver = rl.init_driver("/Users/mlangberg/venv3/bin/chromedriver", proxy)
+        break
+    except ConnectionError:
+        print("ConnectionError: Trying with other proxy")
+        continue
+
 rl.navigate_to_website(driver, "http://www.realtor.com")
-
 columns = ["address", "city", "zip", "price", "sqft", "bedrooms", 
-           "bathrooms", "property_type", "latitude", "longitude", "broker"]
+           "bathrooms", "property_type", "latitude", "longitude", "broker", "agent_name"]
+
+
 
 # Start the scraping.
 for idx, term in enumerate(st):
@@ -61,8 +76,8 @@ for idx, term in enumerate(st):
     for soup in listings:
         new_obs = []
         new_obs.append(rl.get_street_address(soup))
-        new_obs.append(rl.get_city(soup))
         new_obs.append(rl.get_zipcode(soup))
+        new_obs.append(rl.get_city(soup))
         new_obs.append(rl.get_price(soup))
         new_obs.append(rl.get_sqft(soup))
         new_obs.append(rl.get_bedrooms(soup))
@@ -71,6 +86,8 @@ for idx, term in enumerate(st):
         new_obs.append(rl.get_coordinate(soup, "latitude"))
         new_obs.append(rl.get_coordinate(soup, "longitude"))
         new_obs.append(rl.get_broker(soup))
+        new_obs.append(rl.get_agent_name(soup, next(proxy_pool)))
+
 
         # Append new_obs to list output_data.
         output_data.append(new_obs)

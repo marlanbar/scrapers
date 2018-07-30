@@ -9,18 +9,44 @@ from selenium.common.exceptions import TimeoutException
 from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import WebDriverException
 
+import requests
+from requests.exceptions import ProxyError
+
+import time
+import random
+import requests
+from lxml.html import fromstring
 from bs4 import BeautifulSoup
+from fake_useragent import UserAgent
+
 # import pdb
 
-def init_driver(file_path):
-    # Starting maximized fixes https://github.com/ChrisMuir/Zillow/issues/1
-    options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
-    # options.add_argument("headless")
+def get_proxies():
+    url = 'https://free-proxy-list.net/'
+    response = requests.get(url)
+    parser = fromstring(response.text)
+    proxies = set()
+    for i in parser.xpath('//tbody/tr')[:80]:
+        if i.xpath('.//td[7][contains(text(),"yes")]'):
+            #Grabbing IP and corresponding PORT
+            proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
+            proxies.add(proxy)
+    return proxies
 
-    driver = webdriver.Chrome(executable_path=file_path, 
-                              chrome_options=options)
-    driver.wait = WebDriverWait(driver, 10)
+
+def init_driver(file_path, proxy):
+    # Starting maximized fixes https://github.com/ChrisMuir/Zillow/issues/1
+    try:
+        options = webdriver.ChromeOptions()
+        options.add_argument("--start-maximized")
+        # options.add_argument("headless")
+        options.add_argument('--proxy-server=%s' % proxy)
+
+        driver = webdriver.Chrome(executable_path=file_path, 
+                                  chrome_options=options)
+        driver.wait = WebDriverWait(driver, 10)
+    except ConnectionError:
+        raise
     return(driver)
 
 def navigate_to_website(driver, site):
@@ -161,7 +187,7 @@ def get_bedrooms(soup_obj):
 
 def get_bathrooms(soup_obj):
     try:
-        baths = soup_obj.find("li", {"data-label": "property-meta-baths"}).find("span", {"class":"data-value meta-baths"}).get_text()
+        baths = soup_obj.find("li", {"data-label": "property-meta-baths"}).find("span", {"class":"data-value"}).get_text()
     except (ValueError, AttributeError):
         baths = "NA"
     if _is_empty(baths):
@@ -195,6 +221,34 @@ def get_property_type(soup_obj):
     if _is_empty(prop_type):
         prop_type = "NA"
     return(prop_type)
+
+def get_agent_name(soup_obj, proxy):
+    try:
+    
+        link = soup_obj.find("div", {'data-label':'property-photo'}).find("a")["href"]
+        url = "https://www.realtor.com" + link
+        user_agent = UserAgent().random
+        html = requests.get(url, 
+            proxies={"http": proxy, "https": proxy}, 
+            headers={'User-Agent': user_agent, 'referrer': 'https://google.com'},
+            timeout=5)
+        house_soup = BeautifulSoup(html.text, "lxml")
+        agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
+    except (ValueError, AttributeError, TypeError) as err:
+        print("Error: {}".format(err))
+        open("raw_data/{}".format(link.split("/")[2]), "w").write(html.text)
+        agent_name = "NA"
+    except ProxyError:
+        print("Proxy Error")
+        agent_name = "NA"
+    except Exception as e:
+        print("Error: ", e)
+        agent_name = "NA"
+    # print("Getting agent name: {}\n".format(agent_name) + 
+    #         "PROXY: {}\n".format(proxy) +
+    #         "User-Agent: {}".format(user_agent))
+    print("Getting agent name: {}".format(agent_name))
+    return(agent_name)
 
 
 def test_for_no_results(driver):
