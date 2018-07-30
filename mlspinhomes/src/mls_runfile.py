@@ -62,7 +62,6 @@ for idx, term in enumerate(st):
     print("%s realtors scraped\n***" % str(len(realtors)))
 
     for soup in realtors:
-        new_obs = []
         new_obs.append(ml.get_info(soup, "a",  "ao_results_icon_text A detail-page"))
         new_obs.append(ml.get_info(soup, "div", "ao-address"))
         new_obs.append(ml.get_info(soup, "div", "ao-phone"))
