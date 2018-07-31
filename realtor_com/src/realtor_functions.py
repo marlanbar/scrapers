@@ -250,7 +250,7 @@ def get_agent_name(soup_obj, proxy):
     print("Getting agent name: {}".format(agent_name))
     return(agent_name)
 
-def get_new_obs(soup_obj, proxy):
+def get_new_obs(soup, proxy):
     new_obs = []
     new_obs.append(get_street_address(soup))
     new_obs.append(get_zipcode(soup))
