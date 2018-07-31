@@ -1,11 +1,10 @@
 import time
 import argparse
-import pickle
 import pandas as pd
 import realtor_functions as rl
-from itertools import cycle
 import random
-from multiprocessing import Pool
+from itertools import repeat
+from multiprocessing.dummy import Pool
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -21,12 +20,12 @@ zipcodes = zipcodes.iloc[args.resume:]
 st = zipcodes.zipcode.values.tolist()
 num_search_terms = len(st)
 proxies = rl.get_proxies()
-proxy_pool = cycle(proxies)
 
-proxy = random.sample(proxies, 1)[0]
+proxy = rl.random_proxy(proxies)
+
 print("Using PROXY: {}".format(proxy))
 driver = rl.init_driver("/Users/mlangberg/venv3/bin/chromedriver", proxy)
-rl.navigate_to_website(driver, "http://www.realtor.com")
+rl.navigate_to_website(driver, "https://www.realtor.com")
 
 columns = ["address", "city", "zip", "price", "sqft", "bedrooms", 
            "bathrooms", "property_type", "latitude", "longitude", "broker", "agent_name"]
@@ -50,9 +49,6 @@ for idx, term in enumerate(st):
         continue
 
     raw_data = rl.get_html(driver)
-    # for e, html in enumerate(raw_data, 1):
-    #     with open("raw_data/{}_{}.html".format(term,e), "w") as f:
-    #         f.write(html)
 
     print("%s pages of listings found" % str(len(raw_data)))
 
@@ -61,9 +57,12 @@ for idx, term in enumerate(st):
     listings = rl.get_listings(raw_data)
     print("%s home listings scraped\n***" % str(len(listings)))
 
-    with Pool(10) as p:
+    time_start = time.process_time()
+    with Pool(8) as p:
         output_data = p.starmap(rl.get_new_obs, 
-            [(soup, next(proxy_pool)) for soup in listings])    
+            list(zip(listings, repeat(proxies))))
+
+    print("--- %s seconds ---" % (time.process_time() - time_start))
 
     pd.DataFrame(output_data, columns = columns).to_csv(
         args.output + "/{}.csv".format(term), sep="|", header = True,

@@ -10,7 +10,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.common.exceptions import WebDriverException
 
 import requests
-from requests.exceptions import ProxyError
+from requests.exceptions import RequestException
 
 import time
 import random
@@ -32,6 +32,10 @@ def get_proxies():
             proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
             proxies.add(proxy)
     return proxies
+
+def random_proxy(proxies):
+    proxy = random.sample(proxies, 1)[0]
+    return proxy
 
 
 def init_driver(file_path, proxy):
@@ -222,35 +226,41 @@ def get_property_type(soup_obj):
         prop_type = "NA"
     return(prop_type)
 
-def get_agent_name(soup_obj, proxy):
-    try:
-    
-        link = soup_obj.find("div", {'data-label':'property-photo'}).find("a")["href"]
-        url = "https://www.realtor.com" + link
-        user_agent = UserAgent().random
-        html = requests.get(url, 
-            proxies={"http": proxy, "https": proxy}, 
-            headers={'User-Agent': user_agent, 'referrer': 'https://google.com'},
-            timeout=5)
-        house_soup = BeautifulSoup(html.text, "lxml")
-        agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
-    except (ValueError, AttributeError, TypeError) as err:
-        print("Error: {}".format(err))
-        open("raw_data/{}".format(link.split("/")[2]), "w").write(html.text)
-        agent_name = "NA"
-    except ProxyError:
+def get_agent_name(soup_obj, proxies):
+    tries = 5
+    while tries != 0:
+        try:
+            proxy = random_proxy(proxies)
+            link = soup_obj.find("div", {'data-label':'property-photo'}).find("a")["href"]
+            url = "https://www.realtor.com" + link
+            user_agent = UserAgent().random
+            html = requests.get(url, 
+                proxies={"http": proxy, "https": proxy}, 
+                headers={'User-Agent': user_agent, 'referrer': 'https://google.com'},
+                timeout=5)
+            house_soup = BeautifulSoup(html.text, "lxml")
+            agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
+            break
+        except (ValueError, AttributeError, TypeError) as err:
+            print("Error: {}".format(err))
+            open("raw_data/{}".format(link.split("/")[2]), "w").write(html.text)
+            agent_name = "NA"
+            break
+        except RequestException:
+            tries -= 1
+            continue
+        except Exception as e:
+            print("Error: ", e)
+            agent_name = "NA"
+            break
+
+    if tries == 0:
         print("Proxy Error")
         agent_name = "NA"
-    except Exception as e:
-        print("Error: ", e)
-        agent_name = "NA"
-    # print("Getting agent name: {}\n".format(agent_name) + 
-    #         "PROXY: {}\n".format(proxy) +
-    #         "User-Agent: {}".format(user_agent))
     print("Getting agent name: {}".format(agent_name))
     return(agent_name)
 
-def get_new_obs(soup, proxy):
+def get_new_obs(soup, proxies):
     new_obs = []
     new_obs.append(get_street_address(soup))
     new_obs.append(get_zipcode(soup))
@@ -263,7 +273,7 @@ def get_new_obs(soup, proxy):
     new_obs.append(get_coordinate(soup, "latitude"))
     new_obs.append(get_coordinate(soup, "longitude"))
     new_obs.append(get_broker(soup))
-    new_obs.append(get_agent_name(soup, proxy))
+    new_obs.append(get_agent_name(soup, proxies))
     return new_obs
 
 
