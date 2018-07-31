@@ -252,18 +252,18 @@ def get_agent_name(soup_obj, proxy):
 
 def get_new_obs(soup_obj, proxy):
     new_obs = []
-    new_obs.append(rl.get_street_address(soup))
-    new_obs.append(rl.get_zipcode(soup))
-    new_obs.append(rl.get_city(soup))
-    new_obs.append(rl.get_price(soup))
-    new_obs.append(rl.get_sqft(soup))
-    new_obs.append(rl.get_bedrooms(soup))
-    new_obs.append(rl.get_bathrooms(soup))
-    new_obs.append(rl.get_property_type(soup))
-    new_obs.append(rl.get_coordinate(soup, "latitude"))
-    new_obs.append(rl.get_coordinate(soup, "longitude"))
-    new_obs.append(rl.get_broker(soup))
-    new_obs.append(rl.get_agent_name(soup, proxy))
+    new_obs.append(get_street_address(soup))
+    new_obs.append(get_zipcode(soup))
+    new_obs.append(get_city(soup))
+    new_obs.append(get_price(soup))
+    new_obs.append(get_sqft(soup))
+    new_obs.append(get_bedrooms(soup))
+    new_obs.append(get_bathrooms(soup))
+    new_obs.append(get_property_type(soup))
+    new_obs.append(get_coordinate(soup, "latitude"))
+    new_obs.append(get_coordinate(soup, "longitude"))
+    new_obs.append(get_broker(soup))
+    new_obs.append(get_agent_name(soup, proxy))
     return new_obs
 
 
