@@ -5,7 +5,7 @@ import pandas as pd
 import realtor_functions as rl
 from itertools import cycle
 import random
-
+from multiprocessing import Pool
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
@@ -23,29 +23,16 @@ num_search_terms = len(st)
 proxies = rl.get_proxies()
 proxy_pool = cycle(proxies)
 
-# print("PROXY LIST: ", proxies)
-for proxy in proxies:
-    try:
-        print("Using PROXY: {}".format(proxy))
-        proxy = random.sample(proxies, 1)[0]
-        driver = rl.init_driver("/Users/mlangberg/venv3/bin/chromedriver", proxy)
-        rl.navigate_to_website(driver, "http://www.realtor.com")
-        break
-    except ConnectionError:
-        print("ConnectionError: Trying with other proxy")
-        continue
-
+proxy = random.sample(proxies, 1)[0]
+print("Using PROXY: {}".format(proxy))
+driver = rl.init_driver("/Users/mlangberg/venv3/bin/chromedriver", proxy)
+rl.navigate_to_website(driver, "http://www.realtor.com")
 
 columns = ["address", "city", "zip", "price", "sqft", "bedrooms", 
            "bathrooms", "property_type", "latitude", "longitude", "broker", "agent_name"]
 
-
-
 # Start the scraping.
 for idx, term in enumerate(st):
-    # Initialize list obj that will house all scraped data.
-    output_data = []
-
     # Enter search term and execute search.
     if rl.enter_search_term(driver, term):
         print("Entering search term %s of %s: %s" % 
@@ -74,10 +61,9 @@ for idx, term in enumerate(st):
     listings = rl.get_listings(raw_data)
     print("%s home listings scraped\n***" % str(len(listings)))
 
-    for soup in listings:
-        new_obs = rl.get_new_obs(soup, next(proxy_pool))
-        # Append new_obs to list output_data.
-        output_data.append(new_obs)
+    with Pool(10) as p:
+        output_data = p.starmap(rl.get_new_obs, 
+            [(soup, next(proxy_pool)) for soup in listings])    
 
     pd.DataFrame(output_data, columns = columns).to_csv(
         args.output + "/{}.csv".format(term), sep="|", header = True,
