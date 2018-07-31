@@ -29,12 +29,13 @@ for proxy in proxies:
         print("Using PROXY: {}".format(proxy))
         proxy = random.sample(proxies, 1)[0]
         driver = rl.init_driver("/Users/mlangberg/venv3/bin/chromedriver", proxy)
+        rl.navigate_to_website(driver, "http://www.realtor.com")
         break
     except ConnectionError:
         print("ConnectionError: Trying with other proxy")
         continue
 
-rl.navigate_to_website(driver, "http://www.realtor.com")
+
 columns = ["address", "city", "zip", "price", "sqft", "bedrooms", 
            "bathrooms", "property_type", "latitude", "longitude", "broker", "agent_name"]
 
@@ -74,21 +75,7 @@ for idx, term in enumerate(st):
     print("%s home listings scraped\n***" % str(len(listings)))
 
     for soup in listings:
-        new_obs = []
-        new_obs.append(rl.get_street_address(soup))
-        new_obs.append(rl.get_zipcode(soup))
-        new_obs.append(rl.get_city(soup))
-        new_obs.append(rl.get_price(soup))
-        new_obs.append(rl.get_sqft(soup))
-        new_obs.append(rl.get_bedrooms(soup))
-        new_obs.append(rl.get_bathrooms(soup))
-        new_obs.append(rl.get_property_type(soup))
-        new_obs.append(rl.get_coordinate(soup, "latitude"))
-        new_obs.append(rl.get_coordinate(soup, "longitude"))
-        new_obs.append(rl.get_broker(soup))
-        new_obs.append(rl.get_agent_name(soup, next(proxy_pool)))
-
-
+        new_obs = rl.get_new_obs(soup, next(proxy_pool))
         # Append new_obs to list output_data.
         output_data.append(new_obs)
 

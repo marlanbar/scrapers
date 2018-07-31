@@ -84,7 +84,7 @@ def enter_search_term(driver, search_term):
 def get_html(driver):
     output = []
     keep_going = True
-    pages = 0
+    pages = 1
     while keep_going:
         # Pull page HTML
         try:
@@ -95,7 +95,7 @@ def get_html(driver):
         check_for_feedback(driver)
         keep_going = _is_element_displayed(driver, "next", "class")
         last_page = _is_element_displayed(driver, "next-last-page", "class")
-        if keep_going and not last_page and pages <= 10:
+        if keep_going and not last_page and pages <= 5:
             try:
                 # pdb.set_trace()
                 check_for_feedback(driver)
@@ -249,6 +249,22 @@ def get_agent_name(soup_obj, proxy):
     #         "User-Agent: {}".format(user_agent))
     print("Getting agent name: {}".format(agent_name))
     return(agent_name)
+
+def get_new_obs(soup_obj, proxy):
+    new_obs = []
+    new_obs.append(rl.get_street_address(soup))
+    new_obs.append(rl.get_zipcode(soup))
+    new_obs.append(rl.get_city(soup))
+    new_obs.append(rl.get_price(soup))
+    new_obs.append(rl.get_sqft(soup))
+    new_obs.append(rl.get_bedrooms(soup))
+    new_obs.append(rl.get_bathrooms(soup))
+    new_obs.append(rl.get_property_type(soup))
+    new_obs.append(rl.get_coordinate(soup, "latitude"))
+    new_obs.append(rl.get_coordinate(soup, "longitude"))
+    new_obs.append(rl.get_broker(soup))
+    new_obs.append(rl.get_agent_name(soup, proxy))
+    return new_obs
 
 
 def test_for_no_results(driver):
