@@ -224,7 +224,7 @@ def get_property_type(soup_obj):
     return(prop_type)
 
 def get_agent_name(soup_obj, proxies):
-    tries = 5
+    tries = 10
     while tries != 0:
         try:
             proxy = random_proxy(proxies)
@@ -239,21 +239,23 @@ def get_agent_name(soup_obj, proxies):
             agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
             break
         except (ValueError, AttributeError, TypeError) as err:
-            print("Error: {}".format(err))
-            open("raw_data/{}".format(link.split("/")[2]), "w").write(html.text)
+            # print("Error: {}".format(err))
+            # open("raw_data/{}".format(link.split("/")[2]), "w").write(html.text)
             agent_name = "NA"
-            break
+            tries -= 1
+            continue
         except RequestException:
+            agent_name = "NA"
             tries -= 1
             continue
         except Exception as e:
-            print("Error: ", e)
             agent_name = "NA"
-            break
+            tries -= 1
+            continue
 
     if tries == 0:
         print("Proxy Error")
-        agent_name = "NA"
+        
     # print("Getting agent name: {}".format(agent_name))
     return(agent_name)
 
