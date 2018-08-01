@@ -40,17 +40,14 @@ def random_proxy(proxies):
 
 def init_driver(file_path, proxy):
     # Starting maximized fixes https://github.com/ChrisMuir/Zillow/issues/1
-    try:
-        options = webdriver.ChromeOptions()
-        options.add_argument("--start-maximized")
-        # options.add_argument("headless")
-        options.add_argument('--proxy-server=%s' % proxy)
+    options = webdriver.ChromeOptions()
+    # options.add_argument("--start-maximized")
+    options.add_argument("headless")
+    options.add_argument('--proxy-server=%s' % proxy)
 
-        driver = webdriver.Chrome(executable_path=file_path, 
-                                  chrome_options=options)
-        driver.wait = WebDriverWait(driver, 10)
-    except ConnectionError:
-        raise
+    driver = webdriver.Chrome(executable_path=file_path, 
+                              chrome_options=options)
+    driver.wait = WebDriverWait(driver, 5)
     return(driver)
 
 def navigate_to_website(driver, site):
@@ -257,7 +254,7 @@ def get_agent_name(soup_obj, proxies):
     if tries == 0:
         print("Proxy Error")
         agent_name = "NA"
-    print("Getting agent name: {}".format(agent_name))
+    # print("Getting agent name: {}".format(agent_name))
     return(agent_name)
 
 def get_new_obs(soup, proxies):
