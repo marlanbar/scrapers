@@ -15,8 +15,8 @@ from bs4 import BeautifulSoup
 def init_driver(file_path):
     # Starting maximized fixes https://github.com/ChrisMuir/Zillow/issues/1
     options = webdriver.ChromeOptions()
-    options.add_argument("--start-maximized")
-    # options.add_argument("headless")
+    # options.add_argument("--start-maximized")
+    options.add_argument("headless")
 
     driver = webdriver.Chrome(executable_path=file_path, 
                               chrome_options=options)
@@ -39,16 +39,31 @@ def click_find_agent(driver):
     # Check to make sure a captcha page is not displayed.
     check_for_captcha(driver)
 
-def click_new_search(driver):
+def click_find_office(driver):
     try:
         button = driver.wait.until(EC.element_to_be_clickable(
-            (By.ID, "NewSearch")))
+            (By.XPATH, '//*[@id="Master_Viewport"]/div/div[4]/div/div/ul/li[1]/div/a[2]')))
         button.click()
         time.sleep(10)
     except (TimeoutException, NoSuchElementException):
-        raise ValueError("Clicking the 'New Search' button failed")
+        raise ValueError("Clicking the 'FIND AN OFFICE' button failed")
     # Check to make sure a captcha page is not displayed.
     check_for_captcha(driver)
+
+
+def click_edit_search(driver):
+    try:
+        button = driver.wait.until(EC.element_to_be_clickable(
+            (By.XPATH, '//*[@id="EditSearch"]')))
+        button.click()
+        time.sleep(10)
+    except (TimeoutException, NoSuchElementException, WebDriverException):
+        raise ValueError("Clicking the 'Edit Search' button failed")
+    # Check to make sure a captcha page is not displayed.
+    check_for_captcha(driver)
+
+
+
 
 def enter_search_term(driver, search_term):
     if not isinstance(search_term, str):

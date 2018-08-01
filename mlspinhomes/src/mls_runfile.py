@@ -8,6 +8,7 @@ import mls_functions as ml
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
 ap.add_argument("-z", "--zipcode", required=True, help="zipcodes file")
+ap.add_argument("-t", "--type", required=True, help="agent/office")
 ap.add_argument("-o", "--output", required=True, help="output folder")
 ap.add_argument("-r", "--resume", required=False, default=0, type=int, help="start line of zipcode table")
 args = ap.parse_args()
@@ -21,7 +22,15 @@ num_search_terms = len(st)
 
 driver = ml.init_driver("/Users/mlangberg/venv3/bin/chromedriver")
 ml.navigate_to_website(driver, "http://www.mlspinhomes.com")
-ml.click_find_agent(driver)
+
+
+if args.type == "agent":
+    ml.click_find_agent(driver)
+elif args.type == "office":
+    ml.click_find_office(driver)
+else:
+    print("Error: Wrong type specified. Options: agent/office")
+    exit()
 
 columns = ["name", "address", "phone", "broker"]
 
@@ -45,7 +54,7 @@ for idx, term in enumerate(st):
     if ml.test_for_no_results(driver):
         print("Search %s returned zero results. Moving on to next search\n***" %
               str(term))
-        ml.click_new_search(driver)
+        ml.click_edit_search(driver)
         continue
 
 
@@ -62,6 +71,7 @@ for idx, term in enumerate(st):
     print("%s realtors scraped\n***" % str(len(realtors)))
 
     for soup in realtors:
+        new_obs = []
         new_obs.append(ml.get_info(soup, "a",  "ao_results_icon_text A detail-page"))
         new_obs.append(ml.get_info(soup, "div", "ao-address"))
         new_obs.append(ml.get_info(soup, "div", "ao-phone"))
@@ -74,7 +84,7 @@ for idx, term in enumerate(st):
         args.output + "/{}.csv".format(term), sep="|", header = True,
         index = False, encoding = "UTF-8"
     )
-    ml.click_new_search(driver)
+    ml.click_edit_search(driver)
 
 # Close the webdriver connection.
 ml.close_connection(driver)
