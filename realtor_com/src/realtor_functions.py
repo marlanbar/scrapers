@@ -185,7 +185,7 @@ def get_agent_name(soup_obj, proxies):
     try:
         link = soup_obj.find("div", {"data-label":"property-photo"}).find("a")["href"]
         url = "https://www.realtor.com" + link
-        house = get_html(url, proxies, timeout=5, tries=10)
+        house = get_html(url, proxies, timeout=5, tries=5)
         house_soup = BeautifulSoup(house, "lxml")
         agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
     except (ValueError, AttributeError, TypeError) as err:
