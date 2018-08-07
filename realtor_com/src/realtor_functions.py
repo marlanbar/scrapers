@@ -1,20 +1,8 @@
-import re as re
+import re
 import time
-import zipcode
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from selenium.common.exceptions import NoSuchElementException
-from selenium.common.exceptions import WebDriverException
-
 import requests
-from requests.exceptions import RequestException
-
-import time
 import random
-import requests
+from requests.exceptions import RequestException, HTTPError
 from lxml.html import fromstring
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
@@ -37,94 +25,66 @@ def random_proxy(proxies):
     proxy = random.sample(proxies, 1)[0]
     return proxy
 
-
-def init_driver(file_path, proxy):
-    # Starting maximized fixes https://github.com/ChrisMuir/Zillow/issues/1
-    options = webdriver.ChromeOptions()
-    # options.add_argument("--start-maximized")
-    options.add_argument("headless")
-    options.add_argument('--proxy-server=%s' % proxy)
-
-    driver = webdriver.Chrome(executable_path=file_path, 
-                              chrome_options=options)
-    driver.wait = WebDriverWait(driver, 5)
-    return(driver)
-
-def navigate_to_website(driver, site):
-    driver.get(site)
-    # Check to make sure a captcha page is not displayed.
-    check_for_captcha(driver)
-
-def enter_search_term(driver, search_term):
-    if not isinstance(search_term, str):
-        search_term = str(search_term)
-    try:
-        search_bar = driver.wait.until(EC.presence_of_element_located(
-            ((By.ID, "searchBox"))))
-        button = driver.wait.until(EC.element_to_be_clickable(
-            (By.CLASS_NAME, "js-searchButton")))
-        search_bar.clear()
-        time.sleep(5)
-        search_bar.send_keys(search_term)
-        time.sleep(5)
-        button.click()
-        time.sleep(5)
-        return(True)
-    except WebDriverException:
-        print("Something failed...Trying again")
-        time.sleep(5)
-        check_for_feedback(driver)
-        enter_search_term(driver, search_term)
-    except (TimeoutException, NoSuchElementException):
-        return(False)
-    # Check to make sure a captcha page is not displayed.
-    check_for_feedback(driver)
-    check_for_captcha(driver)
-
-
-def get_html(driver):
-    output = []
-    keep_going = True
-    pages = 1
-    while keep_going:
-        # Pull page HTML
+def get_html(url, proxies, timeout=5, tries=5):
+    while tries != 0:
+        proxy = random_proxy(proxies)
         try:
-            output.append(driver.page_source)
-        except TimeoutException:
-            pass
-        # Check to see if a "next page" link exists.
-        check_for_feedback(driver)
-        keep_going = _is_element_displayed(driver, "next", "class")
-        last_page = _is_element_displayed(driver, "next-last-page", "class")
-        if keep_going and not last_page and pages <= 5:
-            try:
-                # pdb.set_trace()
-                check_for_feedback(driver)
-                driver.wait.until(EC.element_to_be_clickable(
-                    (By.CLASS_NAME, "next"))).click()
-                time.sleep(5)
-                pages += 1
-                # Check to make sure a captcha page is not displayed.
-                check_for_captcha(driver)
-            except WebDriverException:
-                check_for_feedback(driver)
-            except TimeoutException:
-                keep_going = False
-        else:
-            keep_going = False
+            html = requests.get(url, 
+            proxies={"http": proxy, "https": proxy}, 
+            headers={'User-Agent': UserAgent().random, 'referrer': 'https://google.com'},
+            timeout=timeout)
+            html.raise_for_status()
+            break
+        except HTTPError as err:
+            raise
+        except RequestException as err:
+            tries -= 1
+            continue
+    if tries == 0: raise RequestException
+    return html.text
 
-    return(output)
+def get_pages(term, proxies):
+    pages = []
+    page_number = 1
+    url_base = "https://www.realtor.com/realestateandhomes-search/"
+    while True:
+        try:
+            html = get_html(url_base + term + "/pg-{}".format(page_number), proxies)
+            soup = BeautifulSoup(html, "lxml")
+            if no_results(soup):
+                print("No results found")
+                break
+            pages.append(soup)
+            if has_next_button(soup):
+                page_number += 1
+                continue
+            else:
+                break 
+        except HTTPError:
+            print("Page does not exist")
+            break
+        except RequestException as err:
+            break
+    return pages
 
+
+def has_next_button(soup):
+    button = soup.find("span", {"class", "next"})
+    if not button:
+        return False
+    else:
+        return button.find("a")
+
+def no_results(soup):
+    return soup.find("h3", {"class": "no-result-subtitle"})
 
 # Split the raw page source into segments, one for each home listing.
 def get_listings(list_obj):
     output = []
-    for i in list_obj:
-        soup = BeautifulSoup(i, "lxml")
+    for soup in list_obj:
         htmlSplit = soup.find_all('li', {'data-listingid' : re.compile(r".*")})
         output += htmlSplit
     return(output)
-
 
 def get_street_address(soup_obj):
     try:
@@ -166,7 +126,6 @@ def get_price(soup_obj):
     price = price.replace(",", "").replace("+", "").replace("$", "")
     return(price)
 
-
 def get_sqft(soup_obj):
     try:
         sqft = soup_obj.find("li", {"data-label": "property-meta-sqft"}).find("span", {"class":"data-value"}).get_text()
@@ -195,7 +154,6 @@ def get_bathrooms(soup_obj):
         baths = "NA"
     return(baths)
 
-
 def get_coordinate(soup_obj, coordinate):
     try:
         coord = soup_obj.find("meta", {"itemprop": coordinate})["content"]
@@ -216,7 +174,7 @@ def get_broker(soup_obj):
 
 def get_property_type(soup_obj):
     try:
-        prop_type = soup_obj.find("span", {"class": "srp-property-type"}).get_text()
+        prop_type = soup_obj.find("div", {"class": "property-type"}).get_text()
     except (ValueError, AttributeError):
         prop_type = "NA"
     if _is_empty(prop_type):
@@ -224,39 +182,19 @@ def get_property_type(soup_obj):
     return(prop_type)
 
 def get_agent_name(soup_obj, proxies):
-    tries = 10
-    while tries != 0:
-        try:
-            proxy = random_proxy(proxies)
-            link = soup_obj.find("div", {'data-label':'property-photo'}).find("a")["href"]
-            url = "https://www.realtor.com" + link
-            user_agent = UserAgent().random
-            html = requests.get(url, 
-                proxies={"http": proxy, "https": proxy}, 
-                headers={'User-Agent': user_agent, 'referrer': 'https://google.com'},
-                timeout=5)
-            house_soup = BeautifulSoup(html.text, "lxml")
-            agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
-            break
-        except (ValueError, AttributeError, TypeError) as err:
-            # print("Error: {}".format(err))
-            # open("raw_data/{}".format(link.split("/")[2]), "w").write(html.text)
-            agent_name = "NA"
-            tries -= 1
-            continue
-        except RequestException:
-            agent_name = "NA"
-            tries -= 1
-            continue
-        except Exception as e:
-            agent_name = "NA"
-            tries -= 1
-            continue
-
-    if tries == 0:
+    try:
+        link = soup_obj.find("div", {"data-label":"property-photo"}).find("a")["href"]
+        url = "https://www.realtor.com" + link
+        house = get_html(url, proxies, timeout=5, tries=10)
+        house_soup = BeautifulSoup(house, "lxml")
+        agent_name = house_soup.find("span", {"data-label":"branding-agent-name"}).get_text()
+    except (ValueError, AttributeError, TypeError) as err:
+        agent_name = "NA"
+    except RequestException:
+        agent_name = "NA"
         print("Proxy Error")
-        
-    # print("Getting agent name: {}".format(agent_name))
+    except Exception as e:
+        agent_name = "NA"
     return(agent_name)
 
 def get_new_obs(soup, proxies):
@@ -275,73 +213,9 @@ def get_new_obs(soup, proxies):
     new_obs.append(get_agent_name(soup, proxies))
     return new_obs
 
-
-def test_for_no_results(driver):
-    no_results_1 = _is_element_displayed(driver, "no_properties_found", "id")
-    no_results_2 = _is_element_displayed(driver, 
-        "//*[contains(text(), 'There are no homes in this area')]", "xpath")
-    no_results_3 = _is_element_displayed(driver, 
-        "//*[contains(text(), 'No results found for your search.')]", "xpath")
-    return(no_results_1 or no_results_2 or no_results_3)
-
-def check_for_feedback(driver):
-    if _is_element_displayed(driver, "div[id='acsMainInvite']", "css"):
-        driver.wait.until(EC.element_to_be_clickable(
-            (By.XPATH, '//*[@id="acsMainInvite"]/div/a[1]'))).click()
-        time.sleep(5)
-
-# Check to see if the page is currently stuck on a captcha page. If so, pause 
-# the scraper until user has manually completed the captcha requirements.
-def check_for_captcha(driver):
-    if _is_element_displayed(driver, "captcha-container", "class"):
-        print("\nCAPTCHA!\n"\
-              "Manually complete the captcha requirements.\n"\
-              "Once that's done, if the program was in the middle of scraping "\
-              "(and is still running), it should resume scraping after ~30 seconds.")
-        _pause_for_captcha(driver)
-
-# If captcha page is displayed, this function will run indefinitely until the 
-# captcha page is no longer displayed (checks for it every 30 seconds).
-# Purpose of the function is to "pause" execution of the scraper until the 
-# user has manually completed the captcha requirements.
-def _pause_for_captcha(driver):
-    while True:
-        time.sleep(30)
-        if not _is_element_displayed(driver, "captcha-container", "class"):
-            break
-
-# Helper function for checking for the presence of a web element.
-def _is_element_displayed(driver, elem_text, elem_type):
-    if elem_type == "class":
-        try:
-            out = driver.find_element_by_class_name(elem_text).is_displayed()
-        except (NoSuchElementException, TimeoutException):
-            out = False
-    elif elem_type == "css":
-        try:
-            out = driver.find_element_by_css_selector(elem_text).is_displayed()
-        except (NoSuchElementException, TimeoutException):
-            out = False
-    elif elem_type == "id":
-        try:
-            out = driver.find_element_by_id(elem_text).is_displayed()
-        except (NoSuchElementException, TimeoutException):
-            out = False
-    elif elem_type == "xpath":
-        try:
-            out = driver.find_element_by_xpath(elem_text).is_displayed()
-        except (NoSuchElementException, TimeoutException):
-            out = False
-    else:
-        raise ValueError("arg 'elem_type' must be either 'class', 'css', 'xpath' or 'id")
-    return(out)
-
 # Helper function for testing if an object is "empty" or not.
 def _is_empty(obj):
     if any([len(obj) == 0, obj == "null", obj.isspace()]):
         return(True)
     else:
         return(False)
-
-def close_connection(driver):
-    driver.quit()

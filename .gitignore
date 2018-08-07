@@ -4,6 +4,7 @@
 *.html
 *.log
 *.bak
+*.gz
 .DS_Store
 __pycache__
 raw_data
