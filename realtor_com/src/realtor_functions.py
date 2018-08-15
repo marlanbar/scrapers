@@ -51,10 +51,10 @@ def get_pages(term, proxies):
         try:
             html = get_html(url_base + term + "/pg-{}".format(page_number), proxies)
             soup = BeautifulSoup(html, "lxml")
+            pages.append(soup)
             if no_results(soup):
                 print("No results found")
                 break
-            pages.append(soup)
             if has_next_button(soup):
                 page_number += 1
                 continue
