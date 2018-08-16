@@ -1,7 +1,7 @@
 import time
 import argparse
 import pandas as pd
-import realtor_functions as rl
+import listings_functions
 import random
 from itertools import repeat
 from multiprocessing.dummy import Pool
@@ -23,19 +23,19 @@ columns = ["address", "city", "zip", "price", "sqft", "bedrooms",
 # Start the scraping.
 for idx, term in enumerate(zipcodes):
     time_start = time.time()
-    proxies = rl.get_proxies()
+    proxies = listings_functions.get_proxies()
 
     print("Entering search term %s of %s: %s" % 
               (str(idx + args.resume), str(zipcodes_count - 1), term))
     
-    raw_data = rl.get_pages(term, proxies)
+    raw_data = listings_functions.get_pages(term, proxies)
     print("%s pages of listings found" % str(len(raw_data)))
 
     # Take the extracted HTML and split it up by individual home listings.
-    listings = rl.get_listings(raw_data)
+    listings = listings_functions.get_listings(raw_data)
 
     with Pool(8) as p:
-        output_data = p.starmap(rl.get_new_obs, 
+        output_data = p.starmap(listings_functions.get_new_obs, 
             list(zip(listings, repeat(proxies))))
 
     pd.DataFrame(output_data, columns = columns).to_csv(

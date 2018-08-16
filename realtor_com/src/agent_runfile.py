@@ -17,8 +17,8 @@ zipcodes = pd.read_csv(args.zipcode, dtype={"zipcode": object})
 zipcodes_count = zipcodes.shape[0]
 zipcodes = zipcodes.iloc[args.resume:].zipcode.values.tolist()
 
-columns = ["agent", "phone", "address", "latitude", "longitude", 
-    "date", "text", "beds_baths", "price"]
+columns = ["agent", "phone", "agency", "address", "latitude", "longitude", 
+    "date", "text", "beds_baths", "price", "worked_with"]
 
 # Start the scraping.
 for idx, term in enumerate(zipcodes):
@@ -45,7 +45,7 @@ for idx, term in enumerate(zipcodes):
         index = False, encoding = "UTF-8"
     )
 
-    total_agents = agents.select("agent").drop_duplicates().shape[0]
+    total_agents = agents[["agent"]].drop_duplicates().shape[0]
 
-    print("%s agents scraped\n***" % str(total_agents))
+    print("%s agents of %s scraped\n***" % (str(total_agents), str(len(agents_urls))))
     print("--- %s seconds ---" % (time.time() - time_start))
